@@ -1,0 +1,6 @@
+{
+  "name": "Penganalisis Teknis Grafik Pasar",
+  "description": "Aplikasi bertenaga AI yang menganalisis gambar grafik pasar yang diunggah pengguna menggunakan berbagai indikator teknis untuk memberikan sinyal perdagangan beli, jual, atau netral dengan alasan terperinci.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

@@ -110,7 +110,7 @@ const reasoningMap: { [K in keyof Reasoning]: { icon: string; title: string } } 
     volumeAnalysis: { icon: 'barChart', title: 'Analisis Volume' },
 };
 
-const RiskRewardRatio: React.FC<{ currentPrice: string; tp: string; sl: string; signal: Signal }> = ({ currentPrice, tp, sl, signal }) => {
+const RiskRewardRatio: React.FC<{ currentPrice: string; tp: string; sl: string; signal: Signal }> = ({ currentPrice, tp, sl }) => {
     const parsePrice = (price: string) => parseFloat(price.replace(/[^0-9.-]+/g, ""));
     const entry = parsePrice(currentPrice);
     const takeProfit = parsePrice(tp);

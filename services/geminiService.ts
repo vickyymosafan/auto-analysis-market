@@ -2,10 +2,32 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult, PreliminarySummary } from '../types';
 
 if (!process.env.API_KEY) {
-    throw new Error("Variabel lingkungan API_KEY tidak diatur");
+    throw new Error("❌ API Key tidak ditemukan! Pastikan GEMINI_API_KEY sudah diatur di file .env");
+}
+
+// Debug: Log API key untuk troubleshooting
+console.log('API Key loaded:', process.env.API_KEY ? `${process.env.API_KEY.substring(0, 10)}...` : 'undefined');
+
+// Validasi format API key
+if (!process.env.API_KEY || !process.env.API_KEY.startsWith('AIza')) {
+    throw new Error("❌ Format API Key tidak valid! API Key Google harus dimulai dengan 'AIza'");
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+// Fungsi untuk test API key
+export const testApiKey = async (): Promise<boolean> => {
+    try {
+        await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: 'Test' }] }
+        });
+        return true;
+    } catch (error: any) {
+        console.error("API Key test failed:", error);
+        return false;
+    }
+};
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -122,33 +144,52 @@ const analysisSchema = {
 };
 
 export const getPreliminarySummary = async (imageFile: File): Promise<PreliminarySummary> => {
-    const imagePart = await fileToGenerativePart(imageFile);
-    const prompt = `Anda adalah seorang analis grafik pasar yang ahli. Lihatlah gambar grafik yang disediakan. 
+    try {
+        const imagePart = await fileToGenerativePart(imageFile);
+        const prompt = `Anda adalah seorang analis grafik pasar yang ahli. Lihatlah gambar grafik yang disediakan.
 1. Jelaskan secara singkat dalam satu atau dua kalimat apa yang Anda lihat. Identifikasi kemungkinan aset (misalnya, BTC/USD), kerangka waktu yang mungkin (misalnya, grafik 4 jam), dan tren atau pola umum saat ini.
 2. Identifikasi harga pasar saat ini (harga penutupan kandil terakhir) dari grafik.
 Respons Anda HARUS berupa objek JSON yang valid yang berisi kunci "summary" dan "currentPrice".`;
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: { parts: [{ text: prompt }, imagePart] },
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: summarySchema,
-            temperature: 0.1
-        }
-    });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: prompt }, imagePart] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: summarySchema,
+                temperature: 0.1
+            }
+        });
 
-    try {
-        const parsedJson = JSON.parse(response.text.trim());
-        return parsedJson as PreliminarySummary;
-    } catch (e) {
-        console.error("Gagal mem-parsing ringkasan JSON:", response.text);
-        throw new Error("AI mengembalikan format ringkasan yang tidak valid.");
+        try {
+            const responseText = response.text?.trim() || '';
+            if (!responseText) {
+                throw new Error("Response kosong dari Gemini API");
+            }
+            const parsedJson = JSON.parse(responseText);
+            return parsedJson as PreliminarySummary;
+        } catch (e) {
+            console.error("Gagal mem-parsing ringkasan JSON:", response.text);
+            throw new Error("AI mengembalikan format ringkasan yang tidak valid.");
+        }
+    } catch (error: any) {
+        console.error("Error calling Gemini API:", error);
+
+        if (error?.message?.includes("API key not valid")) {
+            throw new Error("❌ API Key Google Gemini tidak valid!\n\n📋 Cara mendapatkan API Key yang benar:\n1. Kunjungi: https://aistudio.google.com/app/apikey\n2. Login dengan akun Google\n3. Klik 'Create API Key'\n4. Copy API key dan paste ke file .env\n5. Restart aplikasi\n\n💡 Pastikan billing sudah diaktifkan di Google Cloud Console!");
+        }
+
+        if (error?.message?.includes("quota")) {
+            throw new Error("❌ Kuota API Gemini habis! Cek usage di Google AI Studio atau upgrade plan Anda.");
+        }
+
+        throw new Error(`❌ Gagal mengakses Gemini API: ${error?.message || 'Unknown error'}`);
     }
 };
 
 export const analyzeChart = async (imageFile: File, preliminarySummary: PreliminarySummary, userNotes?: string): Promise<AnalysisResult> => {
-    const imagePart = await fileToGenerativePart(imageFile);
+    try {
+        const imagePart = await fileToGenerativePart(imageFile);
 
     let prompt = `Anda adalah seorang analis pasar keuangan ahli kelas dunia yang berspesialisasi dalam analisis teknis dari gambar grafik. Analisis gambar grafik pasar yang disediakan secara mendalam.
     
@@ -192,12 +233,29 @@ Respons Anda HARUS berupa objek JSON yang valid yang secara ketat mematuhi skema
         }
     });
 
-    const jsonText = response.text.trim();
-    try {
-        const parsedJson = JSON.parse(jsonText);
-        return parsedJson as AnalysisResult;
-    } catch (e) {
-        console.error("Gagal mem-parsing respons JSON:", jsonText);
-        throw new Error("AI mengembalikan format respons yang tidak valid. Silakan coba lagi.");
+    const jsonText = response.text?.trim() || '';
+    if (!jsonText) {
+        throw new Error("Response kosong dari Gemini API");
+    }
+
+        try {
+            const parsedJson = JSON.parse(jsonText);
+            return parsedJson as AnalysisResult;
+        } catch (e) {
+            console.error("Gagal mem-parsing respons JSON:", jsonText);
+            throw new Error("AI mengembalikan format respons yang tidak valid. Silakan coba lagi.");
+        }
+    } catch (error: any) {
+        console.error("Error calling Gemini API:", error);
+
+        if (error?.message?.includes("API key not valid")) {
+            throw new Error("❌ API Key Google Gemini tidak valid!\n\n📋 Cara mendapatkan API Key yang benar:\n1. Kunjungi: https://aistudio.google.com/app/apikey\n2. Login dengan akun Google\n3. Klik 'Create API Key'\n4. Copy API key dan paste ke file .env\n5. Restart aplikasi\n\n💡 Pastikan billing sudah diaktifkan di Google Cloud Console!");
+        }
+
+        if (error?.message?.includes("quota")) {
+            throw new Error("❌ Kuota API Gemini habis! Cek usage di Google AI Studio atau upgrade plan Anda.");
+        }
+
+        throw new Error(`❌ Gagal mengakses Gemini API: ${error?.message || 'Unknown error'}`);
     }
 };

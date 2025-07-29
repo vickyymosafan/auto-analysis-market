@@ -8,6 +8,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import AnalysisResultComponent from './components/AnalysisResult';
 import ErrorDisplay from './components/ErrorDisplay';
 import { Icon } from './components/Icon';
+import { ApiKeyStatus } from './components/ApiKeyStatus';
 import { AnimatePresence } from 'framer-motion';
 
 
@@ -19,6 +20,7 @@ const App: React.FC = () => {
   const [userNotes, setUserNotes] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isApiKeyValid, setIsApiKeyValid] = useState<boolean>(false);
 
   const handleFileUpload = (file: File) => {
     setImageFile(file);
@@ -123,6 +125,9 @@ const App: React.FC = () => {
             Unggah gambar grafik untuk analisis teknis instan, strategi perdagangan yang dapat ditindaklanjuti, dan visualisasi data yang dinamis.
           </p>
         </header>
+
+        <ApiKeyStatus onStatusChange={setIsApiKeyValid} />
+
         <main>
             <AnimatePresence mode="wait">
                 {renderContent()}
